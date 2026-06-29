@@ -4553,6 +4553,11 @@ const RATING_CFG = {
     fallbackLow: 0.34,
     fallbackHigh: 0.76,
   },
+  volumeCredit: 0.22,
+  volumePtsWeight: 0.55,
+  volumePctLow: 0.30,
+  volumePctHigh: 0.92,
+  volumeFallback: { ptsLow: 20, ptsHigh: 110, gLow: 8, gHigh: 55 },
 };
 
 const STAT_ANCHORS = {
@@ -4631,10 +4636,12 @@ function percentile(sortedAsc, p) {
 
 let _baselineCache = null;
 let _calibCache = null;
+let _volumeCache = null;
 
 function resetRatingCaches() {
   _baselineCache = null;
   _calibCache = null;
+  _volumeCache = null;
 }
 
 const _bakedPrior = {
@@ -4729,7 +4736,45 @@ function skaterComposite(stats, defenseShare) {
     const discipline = 0.5 * q.passPct + 0.5 * q.giveaway;
     score *= RATING_CFG.gateFloor + (1 - RATING_CFG.gateFloor) * discipline;
   }
+  if (RATING_CFG.volumeCredit > 0) {
+    const v = volumeBenchmarks();
+    const span = (low, high, value) => clampRating((parseStatNumber(value) - low) / (high - low), 0, 1);
+    const volume = RATING_CFG.volumePtsWeight * span(v.ptsLow, v.ptsHigh, stats["PTS"])
+      + (1 - RATING_CFG.volumePtsWeight) * span(v.gLow, v.gHigh, stats["G"]);
+    score = score * (1 - RATING_CFG.volumeCredit) + volume * RATING_CFG.volumeCredit;
+  }
   return clampRating(score, 0, 1);
+}
+
+function volumeBenchmarks() {
+  if (_volumeCache) return _volumeCache;
+  const fallback = RATING_CFG.volumeFallback;
+  try {
+    const src = _playerSource();
+    const cfg = RATING_CFG.calib;
+    if (!src) { _volumeCache = { ...fallback }; return _volumeCache; }
+    const idx = _colIndex(src), pts = [], goals = [];
+    src.rows.forEach(row => {
+      if (parseStatNumber(row[idx["GP"]]) < cfg.qualifyGp) return;
+      if (posShort(row[idx["Position"]]) === "G") return;
+      pts.push(parseStatNumber(row[idx["PTS"]]));
+      goals.push(parseStatNumber(row[idx["G"]]));
+    });
+    if (pts.length < cfg.minSkaters) { _volumeCache = { ...fallback }; return _volumeCache; }
+    pts.sort((a, b) => a - b);
+    goals.sort((a, b) => a - b);
+    _volumeCache = {
+      ptsLow: percentile(pts, RATING_CFG.volumePctLow),
+      ptsHigh: percentile(pts, RATING_CFG.volumePctHigh),
+      gLow: percentile(goals, RATING_CFG.volumePctLow),
+      gHigh: percentile(goals, RATING_CFG.volumePctHigh),
+    };
+    if (_volumeCache.ptsHigh - _volumeCache.ptsLow < 5) _volumeCache.ptsHigh = _volumeCache.ptsLow + 5;
+    if (_volumeCache.gHigh - _volumeCache.gLow < 3) _volumeCache.gHigh = _volumeCache.gLow + 3;
+  } catch (err) {
+    _volumeCache = { ...fallback };
+  }
+  return _volumeCache;
 }
 
 function ratingCalibration() {
