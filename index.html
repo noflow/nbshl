@@ -4536,8 +4536,8 @@ function statGpValue(stats) {
 }
 
 const RATING_CFG = {
-  floor: 55,
-  ceil: 99,
+  floor: 70,
+  ceil: 96,
   shrinkGames: 12,
   baselineMinGp: 3,
   disciplineGate: true,
@@ -4548,12 +4548,12 @@ const RATING_CFG = {
     qualifyGp: 4,
     minGoalies: 6,
     goalieQualifyGp: 3,
-    pLow: 0.12,
-    pHigh: 0.95,
-    eliteRating: 96,
-    topExp: 2.2,
-    fallbackLow: 0.34,
-    fallbackHigh: 0.76,
+    pLow: 0.08,
+    pHigh: 0.97,
+    eliteRating: 93,
+    topExp: 3.2,
+    fallbackLow: 0.30,
+    fallbackHigh: 0.82,
   },
   volumeCredit: 0.22,
   volumePtsWeight: 0.55,
@@ -4565,6 +4565,14 @@ const RATING_CFG = {
     gLow: 8,
     gHigh: 55,
     D: { ptsLow: 10, ptsHigh: 55, gLow: 2, gHigh: 18 },
+  },
+  goalieRating: {
+    floor: 72,
+    ceil: 95,
+    eliteRating: 91,
+    topExp: 2.8,
+    fallbackLow: 0.26,
+    fallbackHigh: 0.70,
   },
 };
 
@@ -4828,15 +4836,18 @@ function ratingCalibration() {
   return _calibCache;
 }
 
-function compositeToRating(score, calib) {
+function compositeToRating(score, calib, ratingOpts = {}) {
   const cfg = RATING_CFG.calib;
   const { low, high } = calib || ratingCalibration();
-  const floor = RATING_CFG.floor, ceil = RATING_CFG.ceil, elite = cfg.eliteRating;
+  const floor = ratingOpts.floor ?? RATING_CFG.floor;
+  const ceil = ratingOpts.ceil ?? RATING_CFG.ceil;
+  const elite = ratingOpts.eliteRating ?? cfg.eliteRating;
+  const topExp = ratingOpts.topExp ?? cfg.topExp;
   let rating;
   if (score <= high) {
     rating = floor + (score - low) / (high - low) * (elite - floor);
   } else {
-    rating = elite + (ceil - elite) * Math.pow((score - high) / (1 - high), cfg.topExp);
+    rating = elite + (ceil - elite) * Math.pow((score - high) / (1 - high), topExp);
   }
   return Math.round(clampRating(rating, floor, ceil));
 }
@@ -4862,7 +4873,8 @@ function goalieComposite(stats) {
 function goalieCalibration() {
   if (_goalieCalibCache) return _goalieCalibCache;
   const cfg = RATING_CFG.calib;
-  let low = cfg.fallbackLow, high = cfg.fallbackHigh;
+  const goalieCfg = RATING_CFG.goalieRating || {};
+  let low = goalieCfg.fallbackLow ?? cfg.fallbackLow, high = goalieCfg.fallbackHigh ?? cfg.fallbackHigh;
   try {
     const src = _goalieSource();
     if (src && cfg.autoFromLeague) {
@@ -4889,7 +4901,7 @@ function calculateSkaterOverall(stats, playerName = "") {
 }
 
 function calculateGoalieOverall(stats) {
-  return compositeToRating(goalieComposite(stats), goalieCalibration());
+  return compositeToRating(goalieComposite(stats), goalieCalibration(), RATING_CFG.goalieRating);
 }
 
 function calculatePlayerOverall(stats, role, playerName = "") {
