@@ -1578,7 +1578,7 @@
 <body>
 
 <header>
-  <div class="logo"><img class="league-logo" src="images/NHL%20Logo.png" alt="">NBSHL <span>HOCKEY</span></div>
+  <div class="logo"><img class="league-logo" src="images/NHL%20Logo.png" alt="">NBHL <span>HOCKEY</span></div>
   <button class="mobile-menu-toggle" type="button" aria-label="Open menu" aria-expanded="false" onclick="toggleMobileMenu(event)">&#9776;</button>
   <nav id="main-nav">
     <button class="active" onclick="showPage('home', this)">Home</button>
@@ -1768,9 +1768,194 @@ let playoffStatsEnabled = false;
 let websiteSeasons = [];
 let selectedWebsiteSeasonId = "current";
 
-const DIVISIONS = {};
+const DIVISIONS = {
+  "EAST": [
+    "ROC",
+    "WBS",
+    "HER",
+    "PRO",
+    "BRI",
+    "TOR",
+    "LV"
+  ],
+  "WEST": [
+    "TUC",
+    "CV",
+    "MIL",
+    "CLT",
+    "CHI",
+    "GR",
+    "SJ"
+  ]
+};
 
-const TEAMS = [];
+const TEAMS = [
+  {
+    "abbr": "ROC",
+    "name": "NBHL Rochester Americans",
+    "logo": "NBHL Rochester Americans.png",
+    "keywords": [
+      "nbhl rochester americans",
+      "roc",
+      "nbhl",
+      "rochester",
+      "americans"
+    ]
+  },
+  {
+    "abbr": "TUC",
+    "name": "NBHL TUCSON ROADRUNNERS",
+    "logo": "NBHL TUCSON ROADRUNNERS.png",
+    "keywords": [
+      "nbhl tucson roadrunners",
+      "tuc",
+      "nbhl",
+      "tucson",
+      "roadrunners"
+    ]
+  },
+  {
+    "abbr": "WBS",
+    "name": "NBHL WBP",
+    "logo": "NBHL WBP.png",
+    "keywords": [
+      "nbhl wbp",
+      "wbs",
+      "nbhl",
+      "wbp"
+    ]
+  },
+  {
+    "abbr": "CV",
+    "name": "NBHL C Valley Firebirds",
+    "logo": "NBHL C Valley Firebirds.png",
+    "keywords": [
+      "nbhl c valley firebirds",
+      "cv",
+      "nbhl",
+      "valley",
+      "firebirds"
+    ]
+  },
+  {
+    "abbr": "MIL",
+    "name": "NBHL Milwaukee Admirals",
+    "logo": "NBHL Milwaukee Admirals.png",
+    "keywords": [
+      "nbhl milwaukee admirals",
+      "mil",
+      "nbhl",
+      "milwaukee",
+      "admirals"
+    ]
+  },
+  {
+    "abbr": "HER",
+    "name": "NBHL Hershey Bears",
+    "logo": "NBHL Hershey Bears.png",
+    "keywords": [
+      "nbhl hershey bears",
+      "her",
+      "nbhl",
+      "hershey",
+      "bears"
+    ]
+  },
+  {
+    "abbr": "CLT",
+    "name": "NBHL Charlotte Checkers",
+    "logo": "NBHL Charlotte Checkers.png",
+    "keywords": [
+      "nbhl charlotte checkers",
+      "clt",
+      "nbhl",
+      "charlotte",
+      "checkers"
+    ]
+  },
+  {
+    "abbr": "PRO",
+    "name": "NBHL Providence Bruins",
+    "logo": "NBHL Providence Bruins.png",
+    "keywords": [
+      "nbhl providence bruins",
+      "pro",
+      "nbhl",
+      "providence",
+      "bruins"
+    ]
+  },
+  {
+    "abbr": "BRI",
+    "name": "Bridgeport islanders",
+    "logo": "Bridgeport islanders.png",
+    "keywords": [
+      "bridgeport islanders",
+      "bri",
+      "bridgeport",
+      "islanders"
+    ]
+  },
+  {
+    "abbr": "CHI",
+    "name": "NBSHL Chicago Wolves",
+    "logo": "NBSHL Chicago Wolves.png",
+    "keywords": [
+      "nbshl chicago wolves",
+      "chi",
+      "nbshl",
+      "chicago",
+      "wolves"
+    ]
+  },
+  {
+    "abbr": "GR",
+    "name": "NBSHL GR Griffins",
+    "logo": "NBSHL GR Griffins.png",
+    "keywords": [
+      "nbshl gr griffins",
+      "gr",
+      "nbshl",
+      "griffins"
+    ]
+  },
+  {
+    "abbr": "SJ",
+    "name": "NBHL San Jose Barracudas",
+    "logo": "NBHL San Jose Barracudas.png",
+    "keywords": [
+      "nbhl san jose barracudas",
+      "sj",
+      "nbhl",
+      "san",
+      "jose",
+      "barracudas"
+    ]
+  },
+  {
+    "abbr": "TOR",
+    "name": "NBHL TORONTO MARLIES",
+    "logo": "NBHL TORONTO MARLIES.png",
+    "keywords": [
+      "nbhl toronto marlies",
+      "tor",
+      "nbhl",
+      "toronto",
+      "marlies"
+    ]
+  },
+  {
+    "abbr": "LV",
+    "name": "NBHL LV Phantoms",
+    "logo": "NBHL LV Phantoms.png",
+    "keywords": [
+      "nbhl lv phantoms",
+      "lv",
+      "nbhl",
+      "phantoms"
+    ]
+  }
+];
 
 const ROSTER_SHEET_TAB = "Roster";
 const LEGACY_ROSTER_SHEET_TABS = ["CWHL Season 2 Roster", "Season Roster"];
@@ -1778,6 +1963,7 @@ const ROSTER_BLOCK_BASES = [0, 9, 18, 27];
 const TEAM_SALARY_CAP = 73000000;
 const BANNED_QUIT_TAB = "Banned & Quit";
 const TEAM_NAME_PREFIXES = [
+  "NBHL",
   "NBSHL"
 ];
 
@@ -2020,7 +2206,7 @@ function formatLeaderValue(value, kind = "number") {
 async function loadHomeSettings() {
   if (homeSettings) return homeSettings;
   const fallback = {
-    home_title: "NBSHL",
+    home_title: "NBHL",
     home_subtitle: "No Bullshit Hockey League stats, standings, schedules, and playoff tracking.",
     league_intro: "Welcome to the No Bullshit Hockey League hub. Follow the current season, league leaders, team standings, player stats, goalie stats, schedules, recent games, and playoff race in one place.",
     season_label: "Current Season",
@@ -2519,7 +2705,6 @@ async function loadPlayers() {
     const targetData = { cols: raw.cols, rows: raw.rows, numCols: raw.numCols, season: activePlayerSeason };
     if (activePlayerSeason === "playoffs") playoffPlayerData = targetData;
     else playerData = targetData;
-    if (typeof resetRatingCaches === "function") resetRatingCaches();
     try { await ensureGameLogsLoaded(); } catch(e) { console.warn("Current-team mapping unavailable for player totals", e); }
     const displayData = activePlayerSeason === "playoffs" ? playoffPlayerData : playerData;
     const idx = getIndexMap(displayData.cols);
@@ -2679,7 +2864,6 @@ async function loadGoalies() {
     const targetData = { cols: rawG.cols, rows: rawG.rows, numCols: rawG.numCols, season: activeGoalieSeason };
     if (activeGoalieSeason === "playoffs") playoffGoalieData = targetData;
     else goalieData = targetData;
-    if (typeof resetRatingCaches === "function") resetRatingCaches();
     const svIdx = targetData.cols.findIndex(h => h.trim() === "Save %");
     if (svIdx !== -1) sortState.goalies.col = svIdx;
     renderGoalies();
@@ -4050,11 +4234,137 @@ let goalieLogData  = { cols: [], rows: [] };
 let allGamesRaw    = [];
 
 // Full team name lookup from abbreviation (for display)
-const ABBR_TO_FULL = {};
+const ABBR_TO_FULL = {
+  "ROC": "NBHL Rochester Americans",
+  "TUC": "NBHL TUCSON ROADRUNNERS",
+  "WBS": "NBHL WBP",
+  "CV": "NBHL C Valley Firebirds",
+  "MIL": "NBHL Milwaukee Admirals",
+  "HER": "NBHL Hershey Bears",
+  "CLT": "NBHL Charlotte Checkers",
+  "PRO": "NBHL Providence Bruins",
+  "BRI": "Bridgeport islanders",
+  "CHI": "NBSHL Chicago Wolves",
+  "GR": "NBSHL GR Griffins",
+  "SJ": "NBHL San Jose Barracudas",
+  "TOR": "NBHL TORONTO MARLIES",
+  "LV": "NBHL LV Phantoms"
+};
 
-const TEAM_LOGO_FILES = {};
+const TEAM_LOGO_FILES = {
+  "ROC": "NBHL Rochester Americans.png",
+  "TUC": "NBHL TUCSON ROADRUNNERS.png",
+  "WBS": "NBHL WBP.png",
+  "CV": "NBHL C Valley Firebirds.png",
+  "MIL": "NBHL Milwaukee Admirals.png",
+  "HER": "NBHL Hershey Bears.png",
+  "CLT": "NBHL Charlotte Checkers.png",
+  "PRO": "NBHL Providence Bruins.png",
+  "BRI": "Bridgeport islanders.png",
+  "CHI": "NBSHL Chicago Wolves.png",
+  "GR": "NBSHL GR Griffins.png",
+  "SJ": "NBHL San Jose Barracudas.png",
+  "TOR": "NBHL TORONTO MARLIES.png",
+  "LV": "NBHL LV Phantoms.png"
+};
 
-const ABBR_TO_KEYWORDS = {};
+const ABBR_TO_KEYWORDS = {
+  "ROC": [
+    "nbhl rochester americans",
+    "roc",
+    "nbhl",
+    "rochester",
+    "americans"
+  ],
+  "TUC": [
+    "nbhl tucson roadrunners",
+    "tuc",
+    "nbhl",
+    "tucson",
+    "roadrunners"
+  ],
+  "WBS": [
+    "nbhl wbp",
+    "wbs",
+    "nbhl",
+    "wbp"
+  ],
+  "CV": [
+    "nbhl c valley firebirds",
+    "cv",
+    "nbhl",
+    "valley",
+    "firebirds"
+  ],
+  "MIL": [
+    "nbhl milwaukee admirals",
+    "mil",
+    "nbhl",
+    "milwaukee",
+    "admirals"
+  ],
+  "HER": [
+    "nbhl hershey bears",
+    "her",
+    "nbhl",
+    "hershey",
+    "bears"
+  ],
+  "CLT": [
+    "nbhl charlotte checkers",
+    "clt",
+    "nbhl",
+    "charlotte",
+    "checkers"
+  ],
+  "PRO": [
+    "nbhl providence bruins",
+    "pro",
+    "nbhl",
+    "providence",
+    "bruins"
+  ],
+  "BRI": [
+    "bridgeport islanders",
+    "bri",
+    "bridgeport",
+    "islanders"
+  ],
+  "CHI": [
+    "nbshl chicago wolves",
+    "chi",
+    "nbshl",
+    "chicago",
+    "wolves"
+  ],
+  "GR": [
+    "nbshl gr griffins",
+    "gr",
+    "nbshl",
+    "griffins"
+  ],
+  "SJ": [
+    "nbhl san jose barracudas",
+    "sj",
+    "nbhl",
+    "san",
+    "jose",
+    "barracudas"
+  ],
+  "TOR": [
+    "nbhl toronto marlies",
+    "tor",
+    "nbhl",
+    "toronto",
+    "marlies"
+  ],
+  "LV": [
+    "nbhl lv phantoms",
+    "lv",
+    "nbhl",
+    "phantoms"
+  ]
+};
 
 // Map team name variants to abbreviation (for game log lookup)
 function nameToAbbr(name) {
