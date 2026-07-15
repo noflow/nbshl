@@ -3949,6 +3949,7 @@ function scheduleCardHtml(r, idx) {
   const home = String(r[idx["Home"]]||"").trim();
   const code = String(r[idx["Game Code"]]||"").trim();
   const type = String(r[idx["Season Type"]]||"").trim();
+  const server = String(r[idx["Server"]]||"").trim();
 
   return `<div class="game-card">
     ${time ? `<div class="game-date">${time}</div>` : ""}
@@ -3970,6 +3971,7 @@ function scheduleCardHtml(r, idx) {
     <div class="game-card-actions">
       ${type ? `<span class="badge">${type}</span>` : ""}
       ${code ? `<span class="badge lgot">${code}</span>` : ""}
+      ${server ? `<span class="badge">SERVER: ${escapeHtml(server)}</span>` : ""}
     </div>
   </div>`;
 }
