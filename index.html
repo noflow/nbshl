@@ -2555,7 +2555,7 @@ function normalizeStandingsTeamName(value) {
   const text = normalizeTeamLookupText(value);
   for (const team of TEAMS) {
     const keywords = teamLookupKeywords(team);
-    if (keywords.some(kw => text === kw || text.includes(kw))) {
+    if (keywords.some(kw => text === kw)) {
       return normalizeTeamLookupText(team.name);
     }
   }
