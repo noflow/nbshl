@@ -3074,7 +3074,7 @@ function calculatedCapRemaining(roster) {
 function isRosterDataName(value) {
   const text = String(value || "").trim();
   if (!text) return false;
-  return !/^(PLAYER NAME|SKATERS|GOALIES|OWNER|GM|AGM|ROSTER SPOTS|AVAILABLE CAP|TOTAL SALARY|OPEN SPOTS|IR SPOTS|-+)$/i.test(text);
+  return !/^(PLAYER NAME|SKATERS|GOALIES|OWNER|GM|AGM|ROSTER SPOTS|ROSTER COUNT|TC COUNT|TEAM \d+|AVAILABLE CAP|CAP REMAINING|TOTAL SALARY|OPEN SPOTS|IR SPOTS|-+)$/i.test(text);
 }
 
 function isFlatRosterSheet(rows) {
@@ -3163,6 +3163,7 @@ function parseTeamBlockOfficialRosterSheet(rows) {
         const first = String(rows[rr]?.[c] || "").trim();
         const key = normalizeConfigKey(first);
         if (teamAbbrFromRosterName(first) && normalizeConfigKey(rows[rr + 1]?.[c]) === "roster_count") break;
+        if (key === "roster_count" || /^team_\d+$/.test(key)) break;
         if (key === "roster") { section = "players"; continue; }
         if (key === "tc") { section = "injuredReserve"; continue; }
         if (!section || key === "player_name" || !isRosterDataName(first)) continue;
