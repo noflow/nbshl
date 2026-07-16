@@ -238,6 +238,8 @@
     text-align: center !important;
   }
   .player-name { font-weight: 600; color: var(--teal); min-width: 150px; display: inline-block; }
+  .roster-player-name { color: #111111 !important; }
+  .tc-player-name { color: #4169e1 !important; }
   .team-badge { min-width: 40px;
     display: inline-block;
     background: var(--teal3);
@@ -3507,6 +3509,7 @@ function rowForRosterEntry(entry, rowMap, headers, abbr, isGoalie) {
     row[idx["Position"]] = posShort(entry.position || row[idx["Position"]] || "");
   }
   row._teamSalary = entry.salary || "-";
+  row._rosterStatus = entry.rosterStatus || "roster";
   return row;
 }
 
@@ -3706,6 +3709,8 @@ function renderTeamRosterDashboard(abbr, data) {
 
   let rosteredSkaters = [];
   let rosteredGoalies = [];
+  let tcSkaters = [];
+  let tcGoalies = [];
   let ecuSkaters = [];
   let ecuGoalies = [];
 
@@ -3728,6 +3733,18 @@ function renderTeamRosterDashboard(abbr, data) {
     }
     rosteredSkaters = filterHiddenRows(rosteredSkaters, skHeaders);
     rosteredGoalies = filterHiddenRows(rosteredGoalies, glHeaders);
+    (officialRoster.injuredReserve || []).forEach(entry => {
+      const tcEntry = { ...entry, rosterStatus: "tc" };
+      const key = cleanPlayerName(entry.name);
+      if (skByName.has(key) || !glByName.has(key)) {
+        tcSkaters.push(rowForRosterEntry(tcEntry, skByName, skHeaders, abbr, false));
+      }
+      if (glByName.has(key)) {
+        tcGoalies.push(rowForRosterEntry(tcEntry, glByName, glHeaders, abbr, true));
+      }
+    });
+    tcSkaters = filterHiddenRows(tcSkaters, skHeaders);
+    tcGoalies = filterHiddenRows(tcGoalies, glHeaders);
     ecuSkaters = buildCurrentRosterRows(sk.rows, skHeaders, abbr, false, currentTeams)
       .filter(r => !officialNames.has(cleanPlayerName(r[getIndexMap(skHeaders)["Username"]])))
       .filter(r => !isHiddenPlayerName(r[getIndexMap(skHeaders)["Username"]]));
@@ -3744,8 +3761,10 @@ function renderTeamRosterDashboard(abbr, data) {
   const goalieGpIdx = glHeaders.findIndex(h => String(h).trim() === "GP");
 
   rosteredSkaters.sort((a,b) => (parseFloat(b[ptsIdx]||0) - parseFloat(a[ptsIdx]||0)));
+  tcSkaters.sort((a,b) => (parseFloat(b[ptsIdx]||0) - parseFloat(a[ptsIdx]||0)));
   ecuSkaters.sort((a,b) => (parseFloat(b[ptsIdx]||0) - parseFloat(a[ptsIdx]||0)));
   rosteredGoalies.sort((a,b) => (parseFloat(b[goalieGpIdx]||0) - parseFloat(a[goalieGpIdx]||0)));
+  tcGoalies.sort((a,b) => (parseFloat(b[goalieGpIdx]||0) - parseFloat(a[goalieGpIdx]||0)));
   ecuGoalies.sort((a,b) => (parseFloat(b[goalieGpIdx]||0) - parseFloat(a[goalieGpIdx]||0)));
 
   const NON_SUM = new Set(["#","Username","Team","Platform","Position",
@@ -3804,7 +3823,8 @@ function renderTeamRosterDashboard(abbr, data) {
         }
         const v = shown || "-";
         if (origIdx === 1) {
-          return makeClickable(v, [...r], [...headers], isGoalieTable);
+          const extraClass = r._rosterStatus === "tc" ? "tc-player-name" : "roster-player-name";
+          return makeClickable(v, [...r], [...headers], isGoalieTable, "regular", extraClass);
         }
         if (origIdx === highlightCol) return `<td class="pts-cell">${v}</td>`;
         return `<td>${v}</td>`;
@@ -3850,6 +3870,8 @@ function renderTeamRosterDashboard(abbr, data) {
       ${officialRoster ? managementHtml(officialRoster.management) : ""}
       ${sectionHtml(officialRoster ? "Rostered Skaters" : "Skaters", skHeaders, rosteredSkaters, ptsIdx, rosteredSkaters.length ? buildTotals(rosteredSkaters) : null)}
       ${glHeaders.length ? sectionHtml(officialRoster ? "Rostered Goalies" : "Goalies", glHeaders, rosteredGoalies, svIdx) : ""}
+      ${officialRoster && tcSkaters.length ? sectionHtml("TC Skaters", skHeaders, tcSkaters, ptsIdx, null, "training camp") : ""}
+      ${officialRoster && tcGoalies.length && glHeaders.length ? sectionHtml("TC Goalies", glHeaders, tcGoalies, svIdx, null, "training camp") : ""}
       ${officialRoster && ecuSkaters.length ? sectionHtml("ECU Skaters", skHeaders, ecuSkaters, ptsIdx, null, "played but not on current roster") : ""}
       ${officialRoster && ecuGoalies.length && glHeaders.length ? sectionHtml("ECU Goalies", glHeaders, ecuGoalies, svIdx, null, "played but not on current roster") : ""}
     </div>`;
@@ -5958,8 +5980,9 @@ document.addEventListener("visibilitychange", () => {
 });
 
 // Make a player-name cell clickable
-function makeClickable(name, rowData, headers, isGoalie, season = "regular") {
-  return `<td class="player-name clickable" onclick='openPlayerModal(${JSON.stringify(name)}, ${JSON.stringify(rowData)}, ${JSON.stringify(headers)}, ${isGoalie}, ${JSON.stringify(season)})'>${name}</td>`;
+function makeClickable(name, rowData, headers, isGoalie, season = "regular", extraClass = "") {
+  const classes = ["player-name", "clickable", extraClass].filter(Boolean).join(" ");
+  return `<td class="${classes}" onclick='openPlayerModal(${JSON.stringify(name)}, ${JSON.stringify(rowData)}, ${JSON.stringify(headers)}, ${isGoalie}, ${JSON.stringify(season)})'>${name}</td>`;
 }
 // ── INIT ──────────────────────────────────────────────────────────────────────
 // Lazy-load schedule/games when tabs are first clicked
