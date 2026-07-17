@@ -3780,6 +3780,29 @@ function renderTeamRosterDashboard(abbr, data) {
     "Pts/GP","G/GP","A/GP","Shot %","Shots On Net %","Pass %","Faceoff %",
     "Offense Rating","Defense Rating","Teamplay Rating",
     "EV Sh%","EVO","GAR","WAR","Plus Minus","Possession (mins)","TOI (mins)"]);
+  const rawSkaterIdx = getIndexMap(skaterLogData.cols);
+  const useRawTeamTotals = skaterLogData.cols.length > 0 && rawSkaterIdx["Team"] !== undefined;
+  const rawTeamSkaterRows = useRawTeamTotals
+    ? skaterLogData.rows.filter(r => nameToAbbr(r[rawSkaterIdx["Team"]]) === abbr)
+    : [];
+
+  function rawTeamTotal(headerName) {
+    if (!useRawTeamTotals) return null;
+    if (headerName === "GP") return rawTeamSkaterRows.length;
+    if (["W", "L", "OTL"].includes(headerName)) {
+      return rawTeamSkaterRows.reduce((total, row) => {
+        const result = String(row[rawSkaterIdx["Result"]] || "").trim().toUpperCase();
+        if (headerName === "W") return total + (result === "WIN" ? 1 : 0);
+        const isOtLoss = result === "OTL" || (result.includes("OT") && result.includes("LOSS"));
+        if (headerName === "OTL") return total + (isOtLoss ? 1 : 0);
+        return total + (result === "LOSS" ? 1 : 0);
+      }, 0);
+    }
+    const rawHeader = ({ G:"Goals", A:"Assists", PTS:"Points" })[headerName] || headerName;
+    const rawCol = rawSkaterIdx[rawHeader];
+    if (rawCol === undefined) return null;
+    return rawTeamSkaterRows.reduce((total, row) => total + (parseFloat(row[rawCol] || 0) || 0), 0);
+  }
 
   function buildTotals(rows) {
     if (!rows.length) return null;
@@ -3788,13 +3811,19 @@ function renderTeamRosterDashboard(abbr, data) {
     skHeaders.forEach((h, ci) => {
       const hName = String(h||"").trim();
       if (!hName || NON_SUM.has(hName)) return;
-      const sum = rows.reduce((acc, r) => acc + (parseFloat(r[ci]||0)||0), 0);
+      const rawTotal = rawTeamTotal(hName);
+      const sum = rawTotal === null
+        ? rows.reduce((acc, r) => acc + (parseFloat(r[ci]||0)||0), 0)
+        : rawTotal;
       totals[ci] = Number.isInteger(sum) || Math.abs(sum - Math.round(sum)) < 0.001
         ? Math.round(sum) : sum.toFixed(2);
     });
     const pmIdx = skHeaders.findIndex(h => String(h).trim() === "Plus Minus");
     if (pmIdx !== -1) {
-      const pmSum = rows.reduce((acc,r) => acc + (parseInt(r[pmIdx]||0)||0), 0);
+      const rawPm = rawTeamTotal("Plus Minus");
+      const pmSum = rawPm === null
+        ? rows.reduce((acc,r) => acc + (parseInt(r[pmIdx]||0)||0), 0)
+        : rawPm;
       totals[pmIdx] = pmSum > 0 ? "+" + pmSum : String(pmSum);
     }
     const toiIdx = skHeaders.findIndex(h => String(h).trim() === "TOI (mins)");
