@@ -3526,6 +3526,14 @@ function officialRosterNameSet(roster) {
   return names;
 }
 
+function allOfficialRosterNameSet(rosterCache) {
+  const names = new Set();
+  Object.values(rosterCache?.teams || {}).forEach(roster => {
+    officialRosterNameSet(roster).forEach(name => names.add(name));
+  });
+  return names;
+}
+
 function addManagementRowsToRoster(rosteredSkaters, rosteredGoalies, officialRoster, skByName, glByName, skHeaders, glHeaders, abbr) {
   if (!officialRoster?.management) return;
   const skIdx = getIndexMap(skHeaders);
@@ -3704,7 +3712,7 @@ function renderTeamRosterDashboard(abbr, data) {
   const officialRoster = officialRosterCache?.teams?.[abbr] || null;
   const standings = teamStandingsSummary[abbr] || { gp:0, w:0, l:0, otl:0, pts:0, gf:0, ga:0 };
   const currentTeams = buildCurrentTeamMap();
-  const officialNames = officialRosterNameSet(officialRoster);
+  const allOfficialNames = allOfficialRosterNameSet(officialRosterCache);
   const skByName = groupRowsByPlayerName(sk.rows, skHeaders);
   const glByName = groupRowsByPlayerName(gl.rows, glHeaders);
 
@@ -3747,10 +3755,10 @@ function renderTeamRosterDashboard(abbr, data) {
     tcSkaters = filterHiddenRows(tcSkaters, skHeaders);
     tcGoalies = filterHiddenRows(tcGoalies, glHeaders);
     ecuSkaters = buildCurrentRosterRows(sk.rows, skHeaders, abbr, false, currentTeams)
-      .filter(r => !officialNames.has(cleanPlayerName(r[getIndexMap(skHeaders)["Username"]])))
+      .filter(r => !allOfficialNames.has(cleanPlayerName(r[getIndexMap(skHeaders)["Username"]])))
       .filter(r => !isHiddenPlayerName(r[getIndexMap(skHeaders)["Username"]]));
     ecuGoalies = buildCurrentRosterRows(gl.rows, glHeaders, abbr, true, currentTeams)
-      .filter(r => !officialNames.has(cleanPlayerName(r[getIndexMap(glHeaders)["Username"]])))
+      .filter(r => !allOfficialNames.has(cleanPlayerName(r[getIndexMap(glHeaders)["Username"]])))
       .filter(r => !isHiddenPlayerName(r[getIndexMap(glHeaders)["Username"]]));
   } else {
     rosteredSkaters = filterHiddenRows(buildCurrentRosterRows(sk.rows, skHeaders, abbr, false, currentTeams), skHeaders);
