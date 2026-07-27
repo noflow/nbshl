@@ -2900,7 +2900,7 @@ function renderGoalies() {
   const showStarters = !!document.getElementById("goalie-starters-filter")?.checked;
   const data = activeGoalieSeason === "playoffs" ? playoffGoalieData : goalieData;
   const cols = data.cols;
-  const rows = data.rows;
+  const rows = filterHiddenRows(buildLeaguePlayerRows(data.rows, data.cols, true), data.cols);
   if (!cols.length) return;
   const teamIdx = cols.findIndex(h => String(h || "").trim() === "Team");
   const gpIdx = cols.findIndex(h => String(h || "").trim() === "GP");
