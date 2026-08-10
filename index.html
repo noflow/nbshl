@@ -3321,10 +3321,14 @@ async function ensureHiddenPlayersLoaded() {
     const idx = getIndexMap(data.cols);
     const nameIdx = idx["Player Name"] ?? idx["Player"] ?? idx["Username"] ?? idx["Name"] ?? 0;
     const statusIdx = idx["Status"] ?? 1;
+    const latestStatus = new Map();
     data.rows.forEach(row => {
       const name = String(row[nameIdx] || "").trim();
       const status = String(row[statusIdx] || "").trim();
-      if (name && isHiddenStatusActive(status)) hiddenPlayerNames.add(cleanPlayerName(name));
+      if (name) latestStatus.set(cleanPlayerName(name), status);
+    });
+    latestStatus.forEach((status, name) => {
+      if (isHiddenStatusActive(status)) hiddenPlayerNames.add(name);
     });
   } catch(e) {
     console.warn(`${BANNED_QUIT_TAB} tab unavailable`, e);
