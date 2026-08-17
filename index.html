@@ -4217,9 +4217,11 @@ function bracketMatchupHtml(rows, settings = {}) {
   return `<div class="bracket-matchup">${rows.map(r => {
     const status = String(r.status||"").toLowerCase();
     const winner = status === "winner" || status === "won" || Number(r.wins||0) >= winsToWin;
+    const storedTeam = String(r.team || "").trim();
+    const displayTeam = /^winner\s+/i.test(storedTeam) ? "" : storedTeam;
     return `<div class="bracket-team ${winner ? "winner" : ""}">
       <div class="bracket-seed">${r.seed || ""}</div>
-      <div class="bracket-name">${r.team || "TBD"}</div>
+      <div class="bracket-name">${displayTeam || "TBD"}</div>
       <div class="bracket-wins">${r.wins || ""}</div>
     </div>`;
   }).join("")}
