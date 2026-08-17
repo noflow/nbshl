@@ -2118,7 +2118,7 @@ async function fetchSourceTab(tabName) {
   // Use gviz CSV output — served via gviz (no CORS issues) AND
   // returns raw text values so "123+456" match IDs are preserved as-is
   const sheetId = sourceSheetIdForSelectedSeason();
-  const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tabName)}&cb=${Date.now()}`;
+  const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&headers=1&sheet=${encodeURIComponent(tabName)}&cb=${Date.now()}`;
   const res = await fetch(url);
   if (!res.ok) throw new Error(`HTTP ${res.status} fetching ${tabName}`);
   const text = await res.text();
