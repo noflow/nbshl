@@ -1591,7 +1591,7 @@
     <button id="playoff-goalie-nav-btn" style="display:none" onclick="showStatsSeason('goalies', 'playoffs', this)">Playoff Goalie Stats</button>
     <button onclick="showPage('teams', this)">Teams</button>
     <button onclick="showPage('schedule', this)">Schedule</button>
-    <button id="bracket-nav-btn" style="display:none" onclick="showPage('bracket', this)">Playoff Bracket</button>
+    <button id="bracket-nav-btn" onclick="showPage('bracket', this)">Playoff Bracket</button>
     <button onclick="showPage('games', this)">Recent Games</button>
   </nav>
 </header>
@@ -4104,6 +4104,8 @@ function renderSchedule() {
 
 // PLAYOFF BRACKET
 let playoffBracketLoaded = false;
+let bracketVisibilityState = null;
+let bracketVisibilityRefreshInFlight = false;
 
 function truthySetting(v) {
   return ["yes","true","on","1","enabled"].includes(String(v||"").trim().toLowerCase());
@@ -4120,7 +4122,8 @@ function bracketIsEnabled(settings = {}) {
     return truthySetting(bracketEnabled) && truthySetting(showBracket);
   }
   if (bracketEnabled !== "") return truthySetting(bracketEnabled);
-  return truthySetting(showBracket);
+  if (showBracket !== "") return truthySetting(showBracket);
+  return bracketVisibilityState === null ? true : bracketVisibilityState;
 }
 
 function setBracketNavVisible(visible) {
@@ -4164,26 +4167,32 @@ function applyPlayoffStatsVisibility(settings = {}) {
 }
 
 async function refreshBracketVisibility() {
+  if (bracketVisibilityRefreshInFlight) return;
   if (!scheduleSheetIdForSelectedSeason()) {
+    bracketVisibilityState = false;
     setBracketNavVisible(false);
     applyPlayoffStatsVisibility({});
     return;
   }
+  bracketVisibilityRefreshInFlight = true;
   try {
     const settings = await fetchScheduleSettings(bracketSettingsTabForSelectedSeason());
     applyPlayoffStatsVisibility(settings);
-    setBracketNavVisible(bracketIsEnabled(settings));
+    bracketVisibilityState = bracketIsEnabled(settings);
+    setBracketNavVisible(bracketVisibilityState);
   } catch(e) {
-    console.warn("Could not read playoff bracket settings; hiding bracket tab.", e);
-    applyPlayoffStatsVisibility({});
-    setBracketNavVisible(false);
+    console.warn("Could not refresh playoff bracket settings; keeping the previous visibility.", e);
+    if (bracketVisibilityState === null) bracketVisibilityState = true;
+    setBracketNavVisible(bracketVisibilityState);
+  } finally {
+    bracketVisibilityRefreshInFlight = false;
   }
 }
 
 function startBracketVisibilityWatcher() {
   setInterval(() => {
     refreshBracketVisibility();
-  }, 5000);
+  }, 30000);
 }
 
 async function loadPlayoffBracket() {
