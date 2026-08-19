@@ -1457,9 +1457,9 @@
   }
   .bracket-board {
     display: grid;
-    grid-template-columns: minmax(560px, 1fr) minmax(220px, 0.42fr) minmax(560px, 1fr);
-    gap: 28px;
-    min-width: 1120px;
+    grid-template-columns: minmax(430px, 1fr) minmax(190px, 0.44fr) minmax(430px, 1fr);
+    gap: 22px;
+    min-width: 1050px;
     align-items: center;
   }
   .bracket-play-in {
@@ -1485,7 +1485,7 @@
   }
   .bracket-side {
     display: flex;
-    gap: 18px;
+    gap: 14px;
     align-items: stretch;
   }
   .bracket-side.west { flex-direction: row-reverse; }
@@ -1514,18 +1514,25 @@
   }
   .bracket-team {
     display: grid;
-    grid-template-columns: 28px 1fr 30px;
+    grid-template-columns: 22px 30px minmax(54px, 1fr) 28px;
     align-items: center;
-    gap: 7px;
-    min-height: 32px;
+    gap: 6px;
+    min-height: 38px;
     background: rgba(0,0,0,0.52);
     border: 1px solid rgba(255,255,255,0.55);
     box-shadow: inset 0 0 18px rgba(255,255,255,0.08);
-    padding: 4px 7px;
+    padding: 4px 6px;
+    transition: border-color 140ms ease, background 140ms ease, transform 140ms ease;
+  }
+  .bracket-team:hover {
+    border-color: rgba(255,255,255,0.9);
+    background: rgba(0,0,0,0.68);
+    transform: translateY(-1px);
   }
   .bracket-team.winner {
     border-color: var(--gold);
     background: rgba(243,156,18,0.22);
+    box-shadow: inset 0 0 18px rgba(243,156,18,0.14), 0 0 0 1px rgba(243,156,18,0.18);
   }
   .bracket-seed {
     color: rgba(255,255,255,0.72);
@@ -1541,6 +1548,25 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+  .bracket-name-abbr { display: none; }
+  .bracket-logo {
+    width: 30px;
+    height: 30px;
+    display: grid;
+    place-items: center;
+  }
+  .bracket-team-logo {
+    display: block;
+    width: 28px;
+    height: 28px;
+    object-fit: contain;
+    filter: drop-shadow(0 1px 2px rgba(0,0,0,0.5));
+  }
+  .bracket-logo-placeholder {
+    color: rgba(255,255,255,0.32);
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 800;
   }
   .bracket-wins {
     font-family: 'Barlow Condensed', sans-serif;
@@ -1583,7 +1609,25 @@
   @media (max-width: 760px) {
     .bracket-stage { padding: 14px; }
     .bracket-title { font-size: 34px; }
-    .bracket-board { min-width: 980px; gap: 18px; }
+    .bracket-board {
+      grid-template-columns: 340px 180px 340px;
+      min-width: 900px;
+      gap: 12px;
+    }
+    .bracket-side { gap: 10px; }
+    .bracket-round { gap: 12px; }
+    .bracket-team {
+      grid-template-columns: 18px 28px minmax(38px, 1fr) 24px;
+      gap: 4px;
+      padding: 3px 4px;
+    }
+    .bracket-logo { width: 28px; height: 28px; }
+    .bracket-team-logo { width: 26px; height: 26px; }
+    .bracket-name-full { display: none; }
+    .bracket-name-abbr { display: inline; }
+    .bracket-name { font-size: 14px; }
+    .bracket-wins { font-size: 20px; }
+    .bracket-play-in-grid { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
     .team-banner { align-items: stretch; }
     .team-banner-main { width: 100%; }
     .team-banner-cap {
@@ -4331,9 +4375,21 @@ function bracketMatchupHtml(rows, settings = {}) {
     const winner = status === "winner" || status === "won" || Number(r.wins||0) >= winsToWin;
     const storedTeam = String(r.team || "").trim();
     const displayTeam = /^winner\s+/i.test(storedTeam) ? "" : storedTeam;
-    return `<div class="bracket-team ${winner ? "winner" : ""}">
-      <div class="bracket-seed">${r.seed || ""}</div>
-      <div class="bracket-name">${displayTeam || "TBD"}</div>
+    const fullTeam = displayTeam ? displayTeamName(displayTeam) : "TBD";
+    const teamAbbr = displayTeam ? nameToAbbr(displayTeam) : "TBD";
+    const logoSource = String(r.logo || "").trim();
+    const logoSrc = logoSource
+      ? (/^(?:https?:|data:|\/|images\/)/i.test(logoSource) ? logoSource : `images/${encodeURIComponent(logoSource)}`)
+      : "";
+    const logoHtml = displayTeam
+      ? (logoSrc
+          ? `<img class="bracket-team-logo" src="${escapeHtml(logoSrc)}" alt="${escapeHtml(fullTeam)}" loading="lazy" onerror="this.style.display='none'">`
+          : teamLogoImg(displayTeam, "bracket-team-logo", escapeHtml(fullTeam)))
+      : `<span class="bracket-logo-placeholder">-</span>`;
+    return `<div class="bracket-team ${winner ? "winner" : ""}" title="${escapeHtml(fullTeam)}">
+      <div class="bracket-seed">${escapeHtml(r.seed || "")}</div>
+      <div class="bracket-logo">${logoHtml}</div>
+      <div class="bracket-name"><span class="bracket-name-full">${escapeHtml(fullTeam)}</span><span class="bracket-name-abbr">${escapeHtml(teamAbbr)}</span></div>
       <div class="bracket-wins">${r.wins || ""}</div>
     </div>`;
   }).join("")}
