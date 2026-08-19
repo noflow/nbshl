@@ -1483,6 +1483,27 @@
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
     gap: 14px;
   }
+  .bracket-play-in.reference {
+    margin: 26px 0 0;
+    padding: 10px 12px;
+    background: rgba(0,0,0,0.14);
+    border-color: rgba(255,255,255,0.18);
+  }
+  .bracket-play-in.reference .bracket-play-in-title {
+    font-size: 16px;
+    color: rgba(255,255,255,0.72);
+    margin-bottom: 8px;
+  }
+  .bracket-play-in.reference .bracket-play-in-grid {
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 10px;
+  }
+  .bracket-play-in.reference .bracket-team {
+    min-height: 32px;
+  }
+  .bracket-play-in.reference .bracket-series-games {
+    display: none;
+  }
   .bracket-side {
     display: flex;
     gap: 14px;
@@ -4412,12 +4433,23 @@ function bracketSideHtml(side, rows, settings) {
   </div>`;
 }
 
-function bracketPlayInHtml(rows, settings) {
+function bracketSeriesComplete(rows, settings, playIn = false) {
+  const winsToWin = parseInt(
+    playIn ? (settings.play_in_wins_to_win || "1") : (settings.series_wins_to_win || "4"),
+    10
+  ) || (playIn ? 1 : 4);
+  return rows.some(row => {
+    const status = String(row.status || "").trim().toLowerCase();
+    return status === "winner" || status === "won" || Number(row.wins || 0) >= winsToWin;
+  });
+}
+
+function bracketPlayInHtml(rows, settings, reference = false) {
   if (!rows.length) return "";
   const label = settings.play_in_round_label || rows.map(r => r.round).find(Boolean) || "Play-In";
   const seriesIds = [...new Set(rows.map(r => r.series))];
-  return `<div class="bracket-play-in">
-    <div class="bracket-play-in-title">${label}</div>
+  return `<div class="bracket-play-in ${reference ? "reference" : "active"}">
+    <div class="bracket-play-in-title">${reference ? `${label} Results` : label}</div>
     <div class="bracket-play-in-grid">
       ${seriesIds.map(series => bracketMatchupHtml(rows.filter(r => r.series === series), settings)).join("")}
     </div>
@@ -4444,6 +4476,19 @@ function renderPlayoffBracket(data, settings) {
   const east = rows.filter(r => r.side.toLowerCase() === "east");
   const west = rows.filter(r => r.side.toLowerCase() === "west");
   const finals = rows.filter(r => r.side.toLowerCase() === "finals");
+  const playInSeries = [...new Set(playIn.map(r => r.series))];
+  const playInComplete = playInSeries.length > 0 && playInSeries.every(series =>
+    bracketSeriesComplete(playIn.filter(r => r.series === series), settings, true)
+  );
+  const playInHtml = bracketPlayInHtml(playIn, settings, playInComplete);
+  const mainBracketHtml = `<div class="bracket-board">
+    ${bracketSideHtml("east", east, settings)}
+    <div class="bracket-finals">
+      <div class="bracket-finals-label">${settings.finals_label || "CHAMPIONS"}</div>
+      ${finals.length ? bracketMatchupHtml(finals, settings) : bracketMatchupHtml([{team:"TBD"},{team:"TBD"}], settings)}
+    </div>
+    ${bracketSideHtml("west", west, settings)}
+  </div>`;
 
   document.getElementById("bracket-content").innerHTML = `
     <div class="bracket-stage">
@@ -4451,15 +4496,8 @@ function renderPlayoffBracket(data, settings) {
         <div class="bracket-title">${settings.bracket_title || "PLAYOFFS"}</div>
         <div class="bracket-subtitle">${settings.bracket_subtitle || ""}</div>
       </div>
-      ${bracketPlayInHtml(playIn, settings)}
-      <div class="bracket-board">
-        ${bracketSideHtml("east", east, settings)}
-        <div class="bracket-finals">
-          <div class="bracket-finals-label">${settings.finals_label || "CHAMPIONS"}</div>
-          ${finals.length ? bracketMatchupHtml(finals, settings) : bracketMatchupHtml([{team:"TBD"},{team:"TBD"}], settings)}
-        </div>
-        ${bracketSideHtml("west", west, settings)}
-      </div>
+      ${playInComplete ? mainBracketHtml : playInHtml}
+      ${playInComplete ? playInHtml : mainBracketHtml}
     </div>`;
 }
 
