@@ -2147,10 +2147,21 @@ async function fetchScheduleTab(tabName) {
 }
 
 async function fetchScheduleSettings(tabName) {
-  const data = await fetchScheduleTab(tabName);
+  const sheetId = scheduleSheetIdForSelectedSeason();
+  if (!sheetId) {
+    throw new Error("Schedule sheet ID has not been added to the website yet.");
+  }
+  // Settings tabs contain consecutive text rows. Without headers=0, Google
+  // may combine several of those rows into one inferred multi-row header and
+  // hide settings such as playoff_stats_enabled from the website.
+  const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&headers=0&sheet=${encodeURIComponent(tabName)}&cb=${Date.now()}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status} fetching ${tabName}`);
+  const allRows = parseCSV(await res.text());
+  const rows = allRows.filter(r => r.some(c => String(c || "").trim() !== ""));
   const settings = {};
-  settings._rows = data.rows;
-  data.rows.forEach(r => {
+  settings._rows = rows;
+  rows.forEach(r => {
     const key = String(r[0]||"").trim();
     const val = String(r[1]||"").trim();
     if (key) {
