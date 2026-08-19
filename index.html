@@ -3,21 +3,21 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>No Bullshit Hockey League Stats</title>
+<title>League Stats</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root {
-    --teal:    #080808;
-    --teal2:   #232323;
-    --teal3:   #e7e7e7;
-    --ice:     #f4f4f2;
+    --teal:    #1a5276;
+    --teal2:   #366c8e;
+    --teal3:   #d6eaf8;
+    --ice:     #f0f7ff;
     --white:   #ffffff;
-    --grey1:   #eeeeec;
-    --grey2:   #c8c8c3;
-    --grey3:   #707070;
-    --black:   #101010;
-    --accent:  #8f0000;
-    --gold:    #b40000;
+    --grey1:   #f2f3f4;
+    --grey2:   #d5d8dc;
+    --grey3:   #888;
+    --black:   #111;
+    --accent:  #e74c3c;
+    --gold:    #f39c12;
   }
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -1599,7 +1599,7 @@
 <body>
 
 <header>
-  <div class="logo"><img class="league-logo" src="images/NHL%20Logo.png" alt="">NBHL <span>HOCKEY</span></div>
+  <div class="logo"><img class="league-logo" src="images/NHL%20Logo.png" alt="">LEAGUE <span>STATS</span></div>
   <button class="mobile-menu-toggle" type="button" aria-label="Open menu" aria-expanded="false" onclick="toggleMobileMenu(event)">&#9776;</button>
   <nav id="main-nav">
     <button class="active" onclick="showPage('home', this)">Home</button>
@@ -1722,7 +1722,7 @@
         <option value="current">Current Season</option>
       </select>
       <span class="filter-label">Schedule:</span>
-      <select class="pos-filter" id="schedule-type-filter" onchange="filterSchedule()">
+      <select class="pos-filter" id="schedule-type-filter" onchange="filterSchedule(true)">
         <option value="Regular Season Schedule">Regular Season</option>
         <option value="Playoff Schedule">Playoffs</option>
       </select>
@@ -1773,16 +1773,16 @@
 
 </main>
 
-<footer>No Bullshit Hockey League Stats -- Updated automatically each game night</footer>
+<footer>League Stats &mdash; Updated automatically each game night</footer>
 
 <script>
 // ── CONFIG ────────────────────────────────────────────────────────────────────
 // Your publish sheet ID — the one stats_publisher.py writes to
-const SHEET_ID = "1piYeeSlkkcPIcypOWcop4Yi4q6yw7Z8_auwsv_aF9I0"; // publish sheet
-const PLAYOFF_SHEET_ID = "1TKZQsSR1gPpc3Spe58D6_FQrKcHmig37mS0i7hppdn0"; // optional separate playoff publish sheet
-const SOURCE_SHEET_ID = "1gY-znw_u-9v9QfbomBBa64c1q3ZD-PT-HMPdjgiZjzM"; // scraper sheet (Game/Skater/Goalie Log)
-const SCHEDULE_SHEET_ID = "1qY_SxAxWIGB4bJ_cVwPQ_Va0AycEcleIuub2BEyudNs"; // schedule sheet
-const SITE_LEAGUE_NAME = "No Bullshit Hockey League";
+const SHEET_ID        = ""; // publish sheet
+const PLAYOFF_SHEET_ID = ""; // optional separate playoff publish sheet
+const SOURCE_SHEET_ID = ""; // scraper sheet (Game/Skater/Goalie Log)
+const SCHEDULE_SHEET_ID = ""; // schedule sheet
+const SITE_LEAGUE_NAME = "League";
 const WEBSITE_SEASONS_TAB = "Website Seasons";
 let playoffRuntimeSettings = {};
 let playoffStatsEnabled = false;
@@ -1791,192 +1791,15 @@ let websiteSeasons = [];
 let selectedWebsiteSeasonId = "current";
 
 const DIVISIONS = {
-  "EAST": [
-    "ROC",
-    "WBS",
-    "HER",
-    "PRO",
-    "BRI",
-    "TOR",
-    "LV"
-  ],
-  "WEST": [
-    "TUC",
-    "CV",
-    "MIL",
-    "CLT",
-    "CHI",
-    "GR",
-    "SJ"
-  ]
+  "North": ["ALP","BRV"],
+  "South": ["COM","DYN"]
 };
 
 const TEAMS = [
-  {
-    "abbr": "ROC",
-    "name": "Rochester Americans",
-    "logo": "ROC.png",
-    "keywords": [
-      "nbhl rochester americans",
-      "roc",
-      "nbhl",
-      "rochester",
-      "americans"
-    ]
-  },
-  {
-    "abbr": "TUC",
-    "name": "Tucson Roadrunners",
-    "logo": "TUC.png",
-    "keywords": [
-      "nbhl tucson roadrunners",
-      "tuc",
-      "nbhl",
-      "tucson",
-      "roadrunners"
-    ]
-  },
-  {
-    "abbr": "WBS",
-    "name": "Wilkes-Barre/Scranton Penguins",
-    "logo": "WBS.png",
-    "keywords": [
-      "nbhl wbp",
-      "wbs",
-      "nbhl",
-      "wbp"
-    ]
-  },
-  {
-    "abbr": "CV",
-    "name": "Coachella Valley Firebirds",
-    "logo": "CV.png",
-    "keywords": [
-      "nbhl c valley firebirds",
-      "cv",
-      "nbhl",
-      "valley",
-      "firebirds"
-    ]
-  },
-  {
-    "abbr": "MIL",
-    "name": "Milwaukee Admirals",
-    "logo": "MIL.png",
-    "keywords": [
-      "nbhl milwaukee admirals",
-      "mil",
-      "nbhl",
-      "milwaukee",
-      "admirals"
-    ]
-  },
-  {
-    "abbr": "HER",
-    "name": "Hershey Bears",
-    "logo": "HER.png",
-    "keywords": [
-      "nbhl hershey bears",
-      "her",
-      "nbhl",
-      "hershey",
-      "bears"
-    ]
-  },
-  {
-    "abbr": "CLT",
-    "name": "Charlotte Checkers",
-    "logo": "CLT.png",
-    "keywords": [
-      "nbhl charlotte checkers",
-      "clt",
-      "nbhl",
-      "charlotte",
-      "checkers"
-    ]
-  },
-  {
-    "abbr": "PRO",
-    "name": "Providence Bruins",
-    "logo": "PRO.png",
-    "keywords": [
-      "nbhl providence bruins",
-      "pro",
-      "nbhl",
-      "providence",
-      "bruins"
-    ]
-  },
-  {
-    "abbr": "BRI",
-    "name": "Bridgeport Islanders",
-    "logo": "BRI.png",
-    "keywords": [
-      "bridgeport islanders",
-      "bri",
-      "bridgeport",
-      "islanders"
-    ]
-  },
-  {
-    "abbr": "CHI",
-    "name": "Chicago Wolves",
-    "logo": "CHI.png",
-    "keywords": [
-      "nbshl chicago wolves",
-      "chi",
-      "nbshl",
-      "chicago",
-      "wolves"
-    ]
-  },
-  {
-    "abbr": "GR",
-    "name": "Grand Rapids Griffins",
-    "logo": "GR.png",
-    "keywords": [
-      "nbshl gr griffins",
-      "gr",
-      "nbshl",
-      "griffins"
-    ]
-  },
-  {
-    "abbr": "SJ",
-    "name": "San Jose Barracuda",
-    "logo": "SJ.png",
-    "keywords": [
-      "nbhl san jose barracudas",
-      "sj",
-      "nbhl",
-      "san",
-      "jose",
-      "barracudas"
-    ]
-  },
-  {
-    "abbr": "TOR",
-    "name": "Toronto Marlies",
-    "logo": "TOR.png",
-    "keywords": [
-      "nbhl toronto marlies",
-      "tor",
-      "nbhl",
-      "toronto",
-      "marlies"
-    ]
-  },
-  {
-    "abbr": "LV",
-    "name": "Lehigh Valley Phantoms",
-    "logo": "LV.png",
-    "keywords": [
-      "nbhl lv phantoms",
-      "lv",
-      "nbhl",
-      "phantoms"
-    ]
-  }
+  {abbr:"ALP", name:"Alpha Hockey Club", logo:"Alpha Hockey Club.png", keywords:["alpha","alpha hockey"]},
+  {abbr:"BRV", name:"Bravo Hockey Club", logo:"Bravo Hockey Club.png", keywords:["bravo","bravo hockey"]},
+  {abbr:"COM", name:"Comet Hockey Club", logo:"Comet Hockey Club.png", keywords:["comet","comets"]},
+  {abbr:"DYN", name:"Dynasty Hockey Club", logo:"Dynasty Hockey Club.png", keywords:["dynasty"]},
 ];
 
 const ROSTER_SHEET_TAB = "Roster";
@@ -1984,10 +1807,7 @@ const LEGACY_ROSTER_SHEET_TABS = ["CWHL Season 2 Roster", "Season Roster"];
 const ROSTER_BLOCK_BASES = [0, 9, 18, 27];
 const TEAM_SALARY_CAP = 73000000;
 const BANNED_QUIT_TAB = "Banned & Quit";
-const TEAM_NAME_PREFIXES = [
-  "NBHL",
-  "NBSHL"
-];
+const TEAM_NAME_PREFIXES = ["LEAGUE"];
 
 // ── SHEET FETCH ───────────────────────────────────────────────────────────────
 function normalizeConfigKey(value) {
@@ -2239,11 +2059,11 @@ function formatLeaderValue(value, kind = "number") {
 async function loadHomeSettings() {
   if (homeSettings) return homeSettings;
   const fallback = {
-    home_title: "NBHL",
-    home_subtitle: "No Bullshit Hockey League stats, standings, schedules, and playoff tracking.",
-    league_intro: "Welcome to the No Bullshit Hockey League hub. Follow the current season, league leaders, team standings, player stats, goalie stats, schedules, recent games, and playoff race in one place.",
+    home_title: "League Hub",
+    home_subtitle: "Competitive NHL 26 club league stats, schedules, standings, and playoff tracking.",
+    league_intro: "Welcome to the league hub. Follow the current season, team standings, player leaders, goalie leaders, recent games, and playoff race in one place.",
     season_label: "Current Season",
-    season_dates: "Set in Website Settings"
+    season_dates: "Season dates TBD"
   };
   try {
     const settings = await fetchScheduleSettings("Website Settings");
@@ -2495,6 +2315,8 @@ async function changeWebsiteSeason(seasonId) {
   selectedWebsiteSeasonId = seasonId || "current";
   populateWebsiteSeasonSelectors();
   scheduleCache = {};
+  scheduleData = { cols: [], rows: [] };
+  scheduleDefaultResolved = false;
   gameLogData = { cols: [], rows: [] };
   skaterLogData = { cols: [], rows: [] };
   goalieLogData = { cols: [], rows: [] };
@@ -3997,19 +3819,64 @@ function sortTeamTable(th, colIdx) {
 // â”€â”€ SCHEDULE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 let scheduleCache = {};
 let scheduleData = { cols: [], rows: [] };
+let scheduleDefaultResolved = false;
+
+function scheduleRowsStillToPlay(data) {
+  if (!data?.cols?.length || !data.rows?.length) return 0;
+  const idx = getIndexMap(data.cols);
+  const playedKeys = playedScheduleKeys();
+  if (!playedKeys.size) return data.rows.length;
+  return data.rows.filter(row => !playedKeys.has(scheduleRowKey(row, idx))).length;
+}
+
+async function resolveDefaultScheduleType() {
+  if (scheduleDefaultResolved) return;
+
+  const selector = document.getElementById("schedule-type-filter");
+  const regularTab = scheduleTabForPhase("regular");
+  const playoffTab = scheduleTabForPhase("playoffs");
+
+  const loadIfAvailable = async tabName => {
+    if (scheduleCache[tabName]) return scheduleCache[tabName];
+    try {
+      scheduleCache[tabName] = await fetchScheduleTab(tabName);
+    } catch (error) {
+      console.warn(`Schedule tab unavailable: ${tabName}`, error);
+      scheduleCache[tabName] = { cols: [], rows: [], numCols: 0 };
+    }
+    return scheduleCache[tabName];
+  };
+
+  const [regular, playoffs] = await Promise.all([
+    loadIfAvailable(regularTab),
+    loadIfAvailable(playoffTab),
+  ]);
+  const regularGames = scheduleRowsStillToPlay(regular);
+  const playoffGames = scheduleRowsStillToPlay(playoffs);
+
+  if (playoffGames > 0 && regularGames === 0) {
+    selector.value = "Playoff Schedule";
+  } else if (regularGames > 0) {
+    selector.value = "Regular Season Schedule";
+  } else if (playoffGames > 0) {
+    selector.value = "Playoff Schedule";
+  }
+  scheduleDefaultResolved = true;
+}
 
 async function loadSchedule() {
-  const scheduleType = document.getElementById("schedule-type-filter").value || "Regular Season Schedule";
-  const phase = scheduleType === "Playoff Schedule" ? "playoffs" : "regular";
-  const tabName = scheduleTabForPhase(phase);
   try {
+    if (!gameLogData.cols.length) {
+      try { await ensureGameLogsLoaded(); } catch(e) { console.warn("Played-game schedule matching unavailable", e); }
+    }
+    await resolveDefaultScheduleType();
+    const scheduleType = document.getElementById("schedule-type-filter").value || "Regular Season Schedule";
+    const phase = scheduleType === "Playoff Schedule" ? "playoffs" : "regular";
+    const tabName = scheduleTabForPhase(phase);
     if (!scheduleCache[tabName]) {
       scheduleCache[tabName] = await fetchScheduleTab(tabName);
     }
     scheduleData = scheduleCache[tabName];
-    if (!gameLogData.cols.length) {
-      try { await ensureGameLogsLoaded(); } catch(e) { console.warn("Played-game schedule matching unavailable", e); }
-    }
     populateScheduleTeamFilter();
     renderSchedule();
   } catch(e) {
@@ -4042,7 +3909,8 @@ function populateScheduleTeamFilter(selectedValue) {
   sel.value = teams.has(selected) ? selected : "";
 }
 
-function filterSchedule() {
+function filterSchedule(userSelected = false) {
+  if (userSelected) scheduleDefaultResolved = true;
   const scheduleType = document.getElementById("schedule-type-filter").value || "Regular Season Schedule";
   const phase = scheduleType === "Playoff Schedule" ? "playoffs" : "regular";
   const tabName = scheduleTabForPhase(phase);
@@ -4421,135 +4289,24 @@ function gameDateCellHtml(timeOnly, phase) {
 
 // Full team name lookup from abbreviation (for display)
 const ABBR_TO_FULL = {
-  "ROC": "Rochester Americans",
-  "TUC": "Tucson Roadrunners",
-  "WBS": "Wilkes-Barre/Scranton Penguins",
-  "CV": "Coachella Valley Firebirds",
-  "MIL": "Milwaukee Admirals",
-  "HER": "Hershey Bears",
-  "CLT": "Charlotte Checkers",
-  "PRO": "Providence Bruins",
-  "BRI": "Bridgeport Islanders",
-  "CHI": "Chicago Wolves",
-  "GR": "Grand Rapids Griffins",
-  "SJ": "San Jose Barracuda",
-  "TOR": "Toronto Marlies",
-  "LV": "Lehigh Valley Phantoms"
+  ALP:"Alpha Hockey Club",
+  BRV:"Bravo Hockey Club",
+  COM:"Comet Hockey Club",
+  DYN:"Dynasty Hockey Club",
 };
 
 const TEAM_LOGO_FILES = {
-  "ROC": "ROC.png",
-  "TUC": "TUC.png",
-  "WBS": "WBS.png",
-  "CV": "CV.png",
-  "MIL": "MIL.png",
-  "HER": "HER.png",
-  "CLT": "CLT.png",
-  "PRO": "PRO.png",
-  "BRI": "BRI.png",
-  "CHI": "CHI.png",
-  "GR": "GR.png",
-  "SJ": "SJ.png",
-  "TOR": "TOR.png",
-  "LV": "LV.png"
+  ALP:"Alpha Hockey Club.png",
+  BRV:"Bravo Hockey Club.png",
+  COM:"Comet Hockey Club.png",
+  DYN:"Dynasty Hockey Club.png",
 };
 
 const ABBR_TO_KEYWORDS = {
-  "ROC": [
-    "nbhl rochester americans",
-    "roc",
-    "nbhl",
-    "rochester",
-    "americans"
-  ],
-  "TUC": [
-    "nbhl tucson roadrunners",
-    "tuc",
-    "nbhl",
-    "tucson",
-    "roadrunners"
-  ],
-  "WBS": [
-    "nbhl wbp",
-    "wbs",
-    "nbhl",
-    "wbp"
-  ],
-  "CV": [
-    "nbhl c valley firebirds",
-    "cv",
-    "nbhl",
-    "valley",
-    "firebirds"
-  ],
-  "MIL": [
-    "nbhl milwaukee admirals",
-    "mil",
-    "nbhl",
-    "milwaukee",
-    "admirals"
-  ],
-  "HER": [
-    "nbhl hershey bears",
-    "her",
-    "nbhl",
-    "hershey",
-    "bears"
-  ],
-  "CLT": [
-    "nbhl charlotte checkers",
-    "clt",
-    "nbhl",
-    "charlotte",
-    "checkers"
-  ],
-  "PRO": [
-    "nbhl providence bruins",
-    "pro",
-    "nbhl",
-    "providence",
-    "bruins"
-  ],
-  "BRI": [
-    "bridgeport islanders",
-    "bri",
-    "bridgeport",
-    "islanders"
-  ],
-  "CHI": [
-    "nbshl chicago wolves",
-    "chi",
-    "nbshl",
-    "chicago",
-    "wolves"
-  ],
-  "GR": [
-    "nbshl gr griffins",
-    "gr",
-    "nbshl",
-    "griffins"
-  ],
-  "SJ": [
-    "nbhl san jose barracudas",
-    "sj",
-    "nbhl",
-    "san",
-    "jose",
-    "barracudas"
-  ],
-  "TOR": [
-    "nbhl toronto marlies",
-    "tor",
-    "nbhl",
-    "toronto",
-    "marlies"
-  ],
-  "LV": [
-    "nbhl lv phantoms",
-    "lv",
-    "nbhl",
-    "phantoms"
-  ]
+  "ALP": ["alpha","alpha hockey"],
+  "BRV": ["bravo","bravo hockey"],
+  "COM": ["comet","comets"],
+  "DYN": ["dynasty"],
 };
 
 // Map team name variants to abbreviation (for game log lookup)
@@ -5616,13 +5373,13 @@ function renderOverallBadge(stats, role, playerName = "") {
 }
 
 const POSITION_CHART_COLORS = {
-  "LW": "#10b981",
-  "W": "#10b981",
-  "C": "#ef4444",
-  "RW": "#4169e1",
-  "D": "#facc15",
-  "G": "#8b5cf6",
-  "UNK": "#94a3b8"
+  LW: "#10b981",
+  W: "#10b981",
+  C: "#ef4444",
+  RW: "#4169e1",
+  D: "#facc15",
+  G: "#8b5cf6",
+  UNK: "#94a3b8",
 };
 
 function positionChartColor(pos) {
