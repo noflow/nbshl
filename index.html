@@ -1760,13 +1760,14 @@
 // ── CONFIG ────────────────────────────────────────────────────────────────────
 // Your publish sheet ID — the one stats_publisher.py writes to
 const SHEET_ID = "1piYeeSlkkcPIcypOWcop4Yi4q6yw7Z8_auwsv_aF9I0"; // publish sheet
-const PLAYOFF_SHEET_ID = ""; // optional separate playoff publish sheet
+const PLAYOFF_SHEET_ID = "1TKZQsSR1gPpc3Spe58D6_FQrKcHmig37mS0i7hppdn0"; // optional separate playoff publish sheet
 const SOURCE_SHEET_ID = "1gY-znw_u-9v9QfbomBBa64c1q3ZD-PT-HMPdjgiZjzM"; // scraper sheet (Game/Skater/Goalie Log)
 const SCHEDULE_SHEET_ID = "1qY_SxAxWIGB4bJ_cVwPQ_Va0AycEcleIuub2BEyudNs"; // schedule sheet
 const SITE_LEAGUE_NAME = "No Bullshit Hockey League";
 const WEBSITE_SEASONS_TAB = "Website Seasons";
 let playoffRuntimeSettings = {};
 let playoffStatsEnabled = false;
+let playoffTop5Enabled = false;
 let websiteSeasons = [];
 let selectedWebsiteSeasonId = "current";
 
@@ -2240,13 +2241,13 @@ async function loadHomeSettings() {
   return homeSettings;
 }
 
-function buildPlayerLeaders(title, colNames, valueKind = "number") {
-  const nameIdx = columnIndex(playerData.cols, ["Username", "Player", "Name"]);
-  const teamIdx = columnIndex(playerData.cols, ["Team", "Club"]);
-  const statIdx = columnIndex(playerData.cols, colNames);
+function buildPlayerLeaders(title, colNames, valueKind = "number", data = playerData) {
+  const nameIdx = columnIndex(data.cols, ["Username", "Player", "Name"]);
+  const teamIdx = columnIndex(data.cols, ["Team", "Club"]);
+  const statIdx = columnIndex(data.cols, colNames);
   if (nameIdx < 0 || statIdx < 0) return renderLeaderCard(title, []);
 
-  const rows = buildLeaguePlayerRows(playerData.rows, playerData.cols, false)
+  const rows = buildLeaguePlayerRows(data.rows, data.cols, false)
     .map(row => ({
       name: row[nameIdx],
       team: teamIdx >= 0 ? row[teamIdx] : "",
@@ -2260,32 +2261,32 @@ function buildPlayerLeaders(title, colNames, valueKind = "number") {
   return renderLeaderCard(title, rows);
 }
 
-function qualifiedGoalieRows() {
-  const nameIdx = columnIndex(goalieData.cols, ["Username", "Goalie", "Player", "Name"]);
-  const teamIdx = columnIndex(goalieData.cols, ["Team", "Club"]);
-  const gpIdx = columnIndex(goalieData.cols, ["GP", "Games Played"]);
+function qualifiedGoalieRows(data = goalieData, teamGamesByTeam = goalieStarterGamesByTeam) {
+  const nameIdx = columnIndex(data.cols, ["Username", "Goalie", "Player", "Name"]);
+  const teamIdx = columnIndex(data.cols, ["Team", "Club"]);
+  const gpIdx = columnIndex(data.cols, ["GP", "Games Played"]);
   if (nameIdx < 0 || teamIdx < 0 || gpIdx < 0) return [];
 
-  const teamGames = Object.values(goalieStarterGamesByTeam).map(Number).filter(Boolean);
+  const teamGames = Object.values(teamGamesByTeam).map(Number).filter(Boolean);
   const fallbackTeamGp = teamGames.length ? Math.max(...teamGames) : 0;
 
-  return buildLeaguePlayerRows(goalieData.rows, goalieData.cols, true).filter(row => {
+  return buildLeaguePlayerRows(data.rows, data.cols, true).filter(row => {
     const name = String(row[nameIdx] || "").trim();
     if (!name || /^total/i.test(name) || isHiddenPlayerName(name)) return false;
     const teamAbbr = nameToAbbr(row[teamIdx]);
-    const teamGp = goalieStarterGamesByTeam[teamAbbr] || fallbackTeamGp;
+    const teamGp = teamGamesByTeam[teamAbbr] || fallbackTeamGp;
     const minimumGp = teamGp ? Math.ceil(teamGp / 4) : 0;
     return !minimumGp || rowStat(row, gpIdx) >= minimumGp;
   });
 }
 
-function buildGoalieLeaders(title, colNames, ascending, valueKind) {
-  const nameIdx = columnIndex(goalieData.cols, ["Username", "Goalie", "Player", "Name"]);
-  const teamIdx = columnIndex(goalieData.cols, ["Team", "Club"]);
-  const statIdx = columnIndex(goalieData.cols, colNames);
+function buildGoalieLeaders(title, colNames, ascending, valueKind, data = goalieData, teamGamesByTeam = goalieStarterGamesByTeam) {
+  const nameIdx = columnIndex(data.cols, ["Username", "Goalie", "Player", "Name"]);
+  const teamIdx = columnIndex(data.cols, ["Team", "Club"]);
+  const statIdx = columnIndex(data.cols, colNames);
   if (nameIdx < 0 || statIdx < 0) return renderLeaderCard(title, []);
 
-  const rows = qualifiedGoalieRows()
+  const rows = qualifiedGoalieRows(data, teamGamesByTeam)
     .map(row => ({
       name: row[nameIdx],
       team: teamIdx >= 0 ? row[teamIdx] : "",
@@ -2326,9 +2327,20 @@ async function loadHome() {
   if (!homeEl) return;
   try {
     const settings = await loadHomeSettings();
-    const standings = await fetchTab("Standings", publishSheetIdForSeason("regular"));
-    if (!playerData.cols.length) await loadPlayers();
-    if (!goalieData.cols.length) await loadGoalies();
+    const homePhase = playoffTop5Enabled ? "playoffs" : "regular";
+    const standings = await fetchTab("Standings", publishSheetIdForSeason(homePhase));
+    let homePlayerData = playerData;
+    let homeGoalieData = goalieData;
+    if (homePhase === "playoffs") {
+      await ensurePlayoffStatsLoaded();
+      homePlayerData = playoffPlayerData;
+      homeGoalieData = playoffGoalieData;
+    } else {
+      if (!playerData.cols.length) await loadPlayers();
+      if (!goalieData.cols.length) await loadGoalies();
+      homePlayerData = playerData;
+      homeGoalieData = goalieData;
+    }
 
     const standTeamIdx = columnIndex(standings.cols, ["Team", "Name"]);
     const standGpIdx = columnIndex(standings.cols, ["GP", "Games Played"]);
@@ -2342,16 +2354,23 @@ async function loadHome() {
     const rowsForGames = officialStandingRows.length ? officialStandingRows : standings.rows;
     const totalTeamGames = rowsForGames.reduce((sum, r) => sum + rowStat(r, gpCol), 0);
     const completedGames = totalTeamGames ? Math.round(totalTeamGames / 2) : 0;
+    const homeTeamGamesByTeam = {};
+    rowsForGames.forEach(row => {
+      const abbr = nameToAbbr(row[teamCol]);
+      if (abbr) homeTeamGamesByTeam[abbr] = Math.max(homeTeamGamesByTeam[abbr] || 0, rowStat(row, gpCol));
+    });
+    const baseSeasonLabel = String(settings.season_label || "Current Season").replace(/\s+Playoffs$/i, "").trim();
+    const seasonLabel = homePhase === "playoffs" ? `${baseSeasonLabel} Playoffs` : baseSeasonLabel;
 
     const leaderCards = [
-      buildPlayerLeaders("Top Goal Scorers", ["G", "Goals"]),
-      buildPlayerLeaders("Top Assists", ["A", "Assists"]),
-      buildPlayerLeaders("Plus / Minus", ["Plus Minus", "+/-", "Plus/Minus"], "plusminus"),
-      buildPlayerLeaders("Hits", ["Hits"]),
-      buildPlayerLeaders("Interceptions", ["Interceptions", "INT"]),
-      buildPlayerLeaders("Takeaways", ["Takeaways", "Take Aways", "TK"]),
-      buildGoalieLeaders("Goalies: GAA", ["GAA"], true, "gaa"),
-      buildGoalieLeaders("Goalies: Save %", ["Save %", "SV%", "Save Percentage"], false, "pct"),
+      buildPlayerLeaders("Top Goal Scorers", ["G", "Goals"], "number", homePlayerData),
+      buildPlayerLeaders("Top Assists", ["A", "Assists"], "number", homePlayerData),
+      buildPlayerLeaders("Plus / Minus", ["Plus Minus", "+/-", "Plus/Minus"], "plusminus", homePlayerData),
+      buildPlayerLeaders("Hits", ["Hits"], "number", homePlayerData),
+      buildPlayerLeaders("Interceptions", ["Interceptions", "INT"], "number", homePlayerData),
+      buildPlayerLeaders("Takeaways", ["Takeaways", "Take Aways", "TK"], "number", homePlayerData),
+      buildGoalieLeaders("Goalies: GAA", ["GAA"], true, "gaa", homeGoalieData, homeTeamGamesByTeam),
+      buildGoalieLeaders("Goalies: Save %", ["Save %", "SV%", "Save Percentage"], false, "pct", homeGoalieData, homeTeamGamesByTeam),
     ].join("");
 
     homeEl.innerHTML = `
@@ -2365,7 +2384,7 @@ async function loadHome() {
       <section class="home-metrics">
         <div class="home-metric"><div class="home-metric-value">${teams || "-"}</div><div class="home-metric-label">Teams</div></div>
         <div class="home-metric"><div class="home-metric-value">${completedGames || "-"}</div><div class="home-metric-label">Games Played</div></div>
-        <div class="home-metric"><div class="home-metric-value">${escapeHtml(settings.season_label)}</div><div class="home-metric-label">Season</div></div>
+        <div class="home-metric"><div class="home-metric-value">${escapeHtml(seasonLabel)}</div><div class="home-metric-label">Season</div></div>
         <div class="home-metric"><div class="home-metric-value">${escapeHtml(settings.season_dates)}</div><div class="home-metric-label">Season Dates</div></div>
       </section>
       <section class="leader-grid">${leaderCards}</section>
@@ -4138,7 +4157,9 @@ function setBracketNavVisible(visible) {
 
 function applyPlayoffStatsVisibility(settings = {}) {
   playoffRuntimeSettings = settings || {};
+  const previousTop5State = playoffTop5Enabled;
   playoffStatsEnabled = truthySetting(settingValue(playoffRuntimeSettings, "playoff_stats_enabled")) && !!playoffPublishSheetId();
+  playoffTop5Enabled = truthySetting(settingValue(playoffRuntimeSettings, "playoff_top_5_enabled")) && !!playoffPublishSheetId();
 
   const controls = [
     document.getElementById("player-season-label"),
@@ -4163,6 +4184,10 @@ function applyPlayoffStatsVisibility(settings = {}) {
     goalieSeason.value = "regular";
     activeGoalieSeason = "regular";
     loadGoalies();
+  }
+  if (previousTop5State !== playoffTop5Enabled && homeLoaded) {
+    homeLoaded = false;
+    if (document.getElementById("page-home")?.classList.contains("active")) loadHome();
   }
 }
 
@@ -5716,7 +5741,7 @@ function teamsMatchForCard(rowTeam, wantedTeam) {
 }
 
 async function ensurePlayoffStatsLoaded() {
-  if (!playoffStatsEnabled) return;
+  if (!playoffStatsEnabled && !playoffTop5Enabled) return;
   const sheetId = playoffPublishSheetId();
   if (!sheetId) return;
   if (!playoffPlayerData.cols.length) {
