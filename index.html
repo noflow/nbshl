@@ -986,6 +986,24 @@
     color: var(--grey3);
     min-width: 120px;
     font-weight: 500;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 3px;
+  }
+  .game-phase-label {
+    display: inline-flex;
+    align-items: center;
+    min-height: 18px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    background: var(--highlight);
+    color: #111;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 10px;
+    font-weight: 900;
+    line-height: 1;
+    text-transform: uppercase;
   }
   .game-teams {
     flex: 1;
@@ -1238,6 +1256,7 @@
       width: 100%;
       text-align: center;
       font-size: 13px;
+      align-items: center;
     }
     .game-teams {
       display: grid;
@@ -4345,6 +4364,60 @@ let gameLogData    = { cols: [], rows: [] };
 let skaterLogData  = { cols: [], rows: [] };
 let goalieLogData  = { cols: [], rows: [] };
 let allGamesRaw    = [];
+const GAME_PHASE_COL = "__Phase";
+
+async function fetchOptionalSourceTab(tabName) {
+  try {
+    return await fetchSourceTab(tabName);
+  } catch (error) {
+    console.warn(`Optional source tab ${tabName} could not be loaded:`, error);
+    return { cols: [], rows: [], numCols: 0 };
+  }
+}
+
+function mergePhaseLogData(regularData, playoffData) {
+  const columns = [];
+  const seen = new Set();
+  [regularData, playoffData].forEach(data => {
+    (data.cols || []).forEach(column => {
+      const name = String(column || "").trim();
+      if (name && !seen.has(name)) {
+        seen.add(name);
+        columns.push(name);
+      }
+    });
+  });
+  columns.push(GAME_PHASE_COL);
+
+  const mergeRows = (data, phase) => {
+    const sourceIndex = getIndexMap(data.cols || []);
+    return (data.rows || []).map(sourceRow => columns.map(column => {
+      if (column === GAME_PHASE_COL) return phase;
+      const sourceColumn = sourceIndex[column];
+      return sourceColumn === undefined ? "" : sourceRow[sourceColumn];
+    }));
+  };
+
+  const rows = [
+    ...mergeRows(regularData, "regular"),
+    ...mergeRows(playoffData, "playoffs"),
+  ];
+  return { cols: columns, rows, numCols: columns.length };
+}
+
+function gamePhaseForRow(row, idx) {
+  return String(row[idx[GAME_PHASE_COL]] || "regular").trim().toLowerCase() === "playoffs"
+    ? "playoffs"
+    : "regular";
+}
+
+function gameDateCellHtml(timeOnly, phase) {
+  if (!timeOnly && phase !== "playoffs") return "";
+  return `<div class="game-date">
+    ${phase === "playoffs" ? '<span class="game-phase-label">Playoff</span>' : ""}
+    ${timeOnly ? `<span>${timeOnly}</span>` : ""}
+  </div>`;
+}
 
 // Full team name lookup from abbreviation (for display)
 const ABBR_TO_FULL = {
@@ -4546,18 +4619,29 @@ function playedScheduleKeys() {
 
 async function loadGames() {
   try {
-    // Load all three logs from source sheet
-    console.log("Loading Game Log...");
-    const gl = await fetchSourceTab("Game Log");
+    // Load regular-season and playoff logs into one phase-aware game feed.
+    console.log("Loading regular and playoff Game Logs...");
+    const [regularGl, playoffGl] = await Promise.all([
+      fetchSourceTab("Game Log"),
+      fetchOptionalSourceTab("Playoff Game Log"),
+    ]);
+    const gl = mergePhaseLogData(regularGl, playoffGl);
     gameLogData = gl;
     console.log("Game Log loaded:", gl.rows.length, "rows,", gl.cols.length, "cols");
-    console.log("Loading Skater Log...");
-    const sl = await fetchSourceTab("Skater Log");
+    console.log("Loading regular and playoff Skater Logs...");
+    const [regularSl, playoffSl] = await Promise.all([
+      fetchSourceTab("Skater Log"),
+      fetchOptionalSourceTab("Playoff Skater Log"),
+    ]);
+    const sl = mergePhaseLogData(regularSl, playoffSl);
     skaterLogData = sl;
 
-
-    console.log("Loading Goalie Log...");
-    const gol = await fetchSourceTab("Goalie Log");
+    console.log("Loading regular and playoff Goalie Logs...");
+    const [regularGol, playoffGol] = await Promise.all([
+      fetchSourceTab("Goalie Log"),
+      fetchOptionalSourceTab("Playoff Goalie Log"),
+    ]);
+    const gol = mergePhaseLogData(regularGol, playoffGol);
     goalieLogData = gol;
 
     // Build game list sorted newest first
@@ -4579,17 +4663,22 @@ async function loadGames() {
     const slDateIdx = sl.cols.findIndex(c => c.trim() === "Date");
     const slTeamIdx = sl.cols.findIndex(c => c.trim() === "Team");
     const slGoalIdx = sl.cols.findIndex(c => c.trim() === "Goals");
+    const slPhaseIdx = sl.cols.findIndex(c => c.trim() === GAME_PHASE_COL);
 
     // Get compound IDs from skater log - these are the lagout games
-    const lagoutMids = [...new Set(
+    const lagoutKeys = [...new Set(
       sl.rows
-        .map(r => String(r[slMidIdx2]||"").trim())
-        .filter(mid => mid.includes("-") && mid.length > 20)
+        .map(r => {
+          const mid = String(r[slMidIdx2]||"").trim();
+          const phase = String(r[slPhaseIdx]||"regular").trim();
+          return mid.includes("-") && mid.length > 20 ? `${phase}|${mid}` : "";
+        })
+        .filter(Boolean)
     )];
-    console.log("Lagout IDs from skater log:", lagoutMids);
+    console.log("Lagout IDs from skater logs:", lagoutKeys);
 
     // Build set of first-parts of lagout IDs so we can remove mangled rows
-    const lagoutFirstParts = new Set(lagoutMids.map(m => m.split("-")[0].trim()));
+    const lagoutFirstParts = new Set(lagoutKeys.map(key => key.split("|").slice(1).join("|").split("-")[0].trim()));
 
     // Take all game log rows EXCEPT ones that are mangled lagout IDs
     // (A mangled lagout ID would be a very large or negative number not matching any real ID)
@@ -4605,8 +4694,14 @@ async function loadGames() {
     });
 
     // Now add the real lagout games from skater log
-    lagoutMids.forEach(fullMid => {
-      const skRows = sl.rows.filter(r => String(r[slMidIdx2]||"").trim() === fullMid);
+    lagoutKeys.forEach(lagoutKey => {
+      const separator = lagoutKey.indexOf("|");
+      const phase = lagoutKey.slice(0, separator);
+      const fullMid = lagoutKey.slice(separator + 1);
+      const skRows = sl.rows.filter(r =>
+        String(r[slMidIdx2]||"").trim() === fullMid &&
+        String(r[slPhaseIdx]||"regular").trim() === phase
+      );
       if (!skRows.length) return;
 
       const teams = [...new Set(skRows.map(r => String(r[slTeamIdx]||"").trim()))];
@@ -4629,6 +4724,7 @@ async function loadGames() {
       setCol("Team 1", t1); setCol("Team 1 Score", s1); setCol("Team 1 Result", r1);
       setCol("Team 2", t2); setCol("Team 2 Score", s2); setCol("Team 2 Result", r2);
       setCol("OT","no"); setCol("Ended Early","no");
+      setCol(GAME_PHASE_COL, phase);
       allGamesRaw.push(row);
       console.log("Added lagout:", fullMid, t1, s1, "vs", s2, t2);
     });
@@ -4721,6 +4817,7 @@ function renderGames() {
     const early = String(r[glIdx["Ended Early"]]||"").trim().toLowerCase() === "yes";
     const lagout= String(r[glIdx["Lagout"]]||"").trim().toLowerCase() === "yes";
     const forfeit = isForfeitGameRow(r, glIdx);
+    const phase = gamePhaseForRow(r, glIdx);
     if (forfeit && (!s1 || !s2)) {
       if (r1 === "Win" && r2 === "Loss") { s1 = s1 || "1"; s2 = s2 || "0"; }
       else if (r2 === "Win" && r1 === "Loss") { s1 = s1 || "0"; s2 = s2 || "1"; }
@@ -4737,7 +4834,7 @@ function renderGames() {
     else if (early)  badges += `<span class="badge lgot">MERCY</span>`;
 
     return `<div class="game-card" onclick="openBoxScore(${gameIdx})">
-      ${timeOnly ? `<div class="game-date">${timeOnly}</div>` : ""}
+      ${gameDateCellHtml(timeOnly, phase)}
       <div class="game-teams">
         <div class="game-team">
           ${teamLogoImg(r[glIdx["Team 1"]], "game-team-logo", t1)}
@@ -4855,6 +4952,7 @@ function gameCardHtml(r, gameIdx, glIdx, source) {
   const early = String(r[glIdx["Ended Early"]]||"").trim().toLowerCase() === "yes";
   const lagout= String(r[glIdx["Lagout"]]||"").trim().toLowerCase() === "yes";
   const forfeit = isForfeitGameRow(r, glIdx);
+  const phase = gamePhaseForRow(r, glIdx);
   if (forfeit && (!s1 || !s2)) {
     if (r1 === "Win" && r2 === "Loss") { s1 = s1 || "1"; s2 = s2 || "0"; }
     else if (r2 === "Win" && r1 === "Loss") { s1 = s1 || "0"; s2 = s2 || "1"; }
@@ -4873,7 +4971,7 @@ function gameCardHtml(r, gameIdx, glIdx, source) {
   const click = source ? `openBoxScore(${gameIdx}, '${source}')` : `openBoxScore(${gameIdx})`;
 
   return `<div class="game-card" onclick="${click}">
-    ${timeOnly ? `<div class="game-date">${timeOnly}</div>` : ""}
+    ${gameDateCellHtml(timeOnly, phase)}
     <div class="game-teams">
       <div class="game-team">
         ${teamLogoImg(r[glIdx["Team 1"]], "game-team-logo", t1)}
@@ -4944,6 +5042,7 @@ function openBoxScore(gameIdx, source) {
   const ot   = String(gameRow[glIdx["OT"]]||"").trim().toLowerCase() === "yes";
   const matchId = String(gameRow[glIdx["Match ID"]]||"").trim();
   const matchKey = normalizeMatchId(matchId);
+  const gamePhase = gamePhaseForRow(gameRow, glIdx);
 
   document.getElementById("box-scoreline").textContent =
     `${t1}  ${s1} – ${s2}  ${t2}`;
@@ -4956,13 +5055,15 @@ function openBoxScore(gameIdx, source) {
   const skIdx = getIndexMap(skaterLogData.cols);
   const skRows = skaterLogData.rows.filter(r => {
     const mid = String(r[skIdx["Match ID"]]||"").trim();
-    return mid === matchId || normalizeMatchId(mid) === matchKey;
+    return gamePhaseForRow(r, skIdx) === gamePhase &&
+      (mid === matchId || normalizeMatchId(mid) === matchKey);
   });
 
   const glGIdx = getIndexMap(goalieLogData.cols);
   const glRows = goalieLogData.rows.filter(r => {
     const mid = String(r[glGIdx["Match ID"]]||"").trim();
-    return mid === matchId || normalizeMatchId(mid) === matchKey;
+    return gamePhaseForRow(r, glGIdx) === gamePhase &&
+      (mid === matchId || normalizeMatchId(mid) === matchKey);
   });
 
   // Split by team
@@ -5988,7 +6089,7 @@ async function renderPlayerRecentGames() {
     const glIdx = getIndexMap(gameLogData.cols);
     const wantedName = String(card.playerName||"").trim().toLowerCase();
     const wantedTeam = String(card.team||"").trim().toUpperCase();
-    const matchIds = new Set();
+    const matchKeys = new Set();
 
     [skaterLogData, goalieLogData].forEach(log => {
       const idx = getIndexMap(log.cols);
@@ -6000,12 +6101,15 @@ async function renderPlayerRecentGames() {
         })
         .forEach(r => {
           const mid = normalizeMatchId(r[idx["Match ID"]]);
-          if (mid) matchIds.add(mid);
+          if (mid) matchKeys.add(`${gamePhaseForRow(r, idx)}|${mid}`);
         });
     });
 
     const games = allGamesRaw
-      .filter(r => matchIds.has(normalizeMatchId(r[glIdx["Match ID"]])))
+      .filter(r => {
+        const mid = normalizeMatchId(r[glIdx["Match ID"]]);
+        return matchKeys.has(`${gamePhaseForRow(r, glIdx)}|${mid}`);
+      })
       .sort((a,b) => String(b[glIdx["Date"]]||"").localeCompare(String(a[glIdx["Date"]]||"")));
 
     window._playerRenderedGames = games;
